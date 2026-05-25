@@ -59,3 +59,7 @@ The siren is **manual only** — tap the **bullhorn** in the header after login.
 ## Static-only (no SQL)
 
 `npx serve .` still works for UI/maps/signals, but reports stay in the browser only.
+
+run the app on your mobile device using https://askresqnet.netlify.app
+and DOWNLOADDDDDDDDDDDDDD
+
