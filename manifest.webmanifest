@@ -1,0 +1,60 @@
+{
+  "id": "/",
+  "name": "ResqNet – Disaster Response",
+  "short_name": "ResqNet",
+  "description": "Disaster response for citizens: live alerts, maps, safe zones, emergency medical dispatch, and community SOS reports. Serving Bengaluru and Tokyo.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
+  "background_color": "#f1f5f9",
+  "theme_color": "#001A4D",
+  "categories": ["utilities", "medical", "navigation"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Live Map",
+      "short_name": "Map",
+      "description": "Open safe zones and live GPS map",
+      "url": "/?tab=map",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Emergency Alerts",
+      "short_name": "Alerts",
+      "description": "View citizen SOS and disaster alerts",
+      "url": "/?tab=alerts",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
