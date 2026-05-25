@@ -182,6 +182,7 @@ function foundApp_init() {
   window.appState.subscribe(foundApp_render);
 
   // Set initial rendering status
+  foundApp_updateHeaderCity(window.appState.currentCity);
   foundApp_render(window.appState);
 
   // Configure OTP input box auto-focus shift loop
@@ -393,8 +394,24 @@ function foundApp_switchTab(tabName) {
 
 function foundApp_onCityChange(cityName) {
   window.appState.update('currentCity', cityName);
+  foundApp_updateHeaderCity(cityName);
   foundApp_triggerCityChangeCallbacks();
 }
+
+function foundApp_updateHeaderCity(cityName) {
+  const cityText = document.getElementById('header-city-text');
+  if (cityText) cityText.textContent = cityName || 'Bengaluru';
+}
+
+window.foundApp_openSettings = function () {
+  const layout = document.getElementById('foundApp-main-layout');
+  if (layout) layout.classList.add('foundApp-settings-open');
+};
+
+window.foundApp_closeSettings = function () {
+  const layout = document.getElementById('foundApp-main-layout');
+  if (layout) layout.classList.remove('foundApp-settings-open');
+};
 
 function foundApp_toggleLowBandwidth() {
   const nextVal = !window.appState.isLowBandwidth;
@@ -417,28 +434,24 @@ function foundApp_render(state) {
   if (typeof window.i18n_applyDom === 'function') window.i18n_applyDom();
   if (!state.isLoggedIn) return;
 
-  // 1. Sync Dropdown Value
+  // 1. Sync city dropdown & header label
   const dropdown = document.getElementById('city-dropdown');
   if (dropdown && dropdown.value !== state.currentCity) {
     dropdown.value = state.currentCity;
   }
+  foundApp_updateHeaderCity(state.currentCity);
 
   // 2. Render Low-Bandwidth Mode Switch
   const lbwTrack = document.getElementById('lbw-track');
   const lbwThumb = document.getElementById('lbw-thumb');
-  const lbwLabel = document.getElementById('lbw-label');
 
-  if (lbwTrack && lbwThumb && lbwLabel) {
+  if (lbwTrack && lbwThumb) {
     if (state.isLowBandwidth) {
-      lbwThumb.style.transform = 'translateX(20px)';
-      lbwTrack.style.backgroundColor = '#4f46e5'; // Indigo-600
-      lbwLabel.classList.remove('text-slate-400');
-      lbwLabel.classList.add('text-indigo-600');
+      lbwThumb.style.transform = 'translateX(16px)';
+      lbwTrack.style.backgroundColor = '#4f46e5';
     } else {
       lbwThumb.style.transform = 'translateX(0px)';
-      lbwTrack.style.backgroundColor = '#e2e8f0'; // Slate-200
-      lbwLabel.classList.remove('text-indigo-600');
-      lbwLabel.classList.add('text-slate-400');
+      lbwTrack.style.backgroundColor = '#e2e8f0';
     }
   }
 

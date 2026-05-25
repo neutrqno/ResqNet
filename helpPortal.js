@@ -272,6 +272,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // ═══════════════════════════════════════════════════════════
   // HELP DESK FAB & OVERLAY
   // ═══════════════════════════════════════════════════════════
+  function helpPortal_applyChatbotI18n() {
+    const fab = document.getElementById('helpPortal-fab');
+    const titleEl = document.getElementById('helpPortal-chat-title');
+    const subEl = document.getElementById('helpPortal-chat-subtitle');
+    if (fab) fab.title = helpPortal_t('helpDeskTitle');
+    if (titleEl) titleEl.textContent = helpPortal_t('helpDeskTitle');
+    if (subEl) subEl.textContent = helpPortal_t('helpDeskSub');
+  }
+
   function helpPortal_initChatbotDom() {
     const chatbotSlot = document.getElementById('chatbot-slot');
     if (!chatbotSlot) return;
@@ -283,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <!-- Floating Action Button -->
       <button id="helpPortal-fab" 
               class="absolute bottom-4 right-4 pointer-events-auto w-14 h-14 rounded-full bg-gradient-to-tr from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white flex items-center justify-center shadow-xl shadow-rose-600/30 transition-all active:scale-95 cursor-pointer z-50 helpPortal-beacon-pulse hidden"
-              title="Emergency Help Desk">
+              title="${helpPortal_t('helpDeskTitle')}">
         <span class="absolute inset-0 rounded-full bg-rose-500 animate-ping opacity-25"></span>
         <i class="fa-solid fa-headset text-xl z-10"></i>
       </button>
@@ -300,8 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
               <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
             </span>
             <div>
-              <p class="text-xs font-black text-white leading-none uppercase tracking-wider">Help Desk</p>
-              <p class="text-[9px] font-bold text-slate-400 mt-0.5 leading-none">Crisis guidance &amp; quick actions</p>
+              <p id="helpPortal-chat-title" class="text-xs font-black text-white leading-none uppercase tracking-wider">${helpPortal_t('helpDeskTitle')}</p>
+              <p id="helpPortal-chat-subtitle" class="text-[9px] font-bold text-slate-400 mt-0.5 leading-none">${helpPortal_t('helpDeskSub')}</p>
             </div>
           </div>
           <button id="helpPortal-chat-close" 
@@ -962,6 +971,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function helpPortal_initModule() {
     helpPortal_injectStyles();
     helpPortal_initChatbotDom();
+    helpPortal_applyChatbotI18n();
+
+    document.addEventListener('resqnet-lang-change', helpPortal_applyChatbotI18n);
 
     if (window.appState) {
       window.appState.subscribe(helpPortal_onStateUpdate);

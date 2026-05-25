@@ -370,7 +370,7 @@ function signalsHub_drawDashboardHTML(city) {
     return `
       <div class="bg-white border border-slate-200 rounded-xl p-4 text-center">
         <i class="fa-solid fa-circle-notch fa-spin text-indigo-500 mb-2"></i>
-        <p class="text-xs text-slate-500">Loading live weather, earthquakes &amp; hazard signals…</p>
+        <p class="text-xs text-slate-500">${typeof window.i18n_t === 'function' ? window.i18n_t('loadingSignals') : 'Loading live weather, earthquakes & hazard signals…'}</p>
       </div>`;
   }
   if (s.error && s.city === city) {
