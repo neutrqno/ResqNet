@@ -8,6 +8,9 @@
     "db:init": "node server/init-db.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/cli": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "better-sqlite3": "^11.8.1",
     "express": "^4.21.2"
   }
