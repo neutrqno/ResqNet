@@ -24,6 +24,106 @@ window.foundApp_isLoggedIn = function () {
   return !!(window.appState && window.appState.isLoggedIn);
 };
 
+/** India / Japan official emergency lines used across the app */
+const foundApp_EMERGENCY_LINES = {
+  ambulance108: { tel: '108', label: '108 Ambulance', sub: 'GVK EMRI · Medical' },
+  erss112: { tel: '112', label: '112 ERSS', sub: 'Police · Fire · Medical' },
+  medical102: { tel: '102', label: '102 Medical', sub: 'National ambulance' },
+  disaster1078: { tel: '1078', label: '1078 NDMA', sub: 'Disaster helpline' },
+  tokyo119: { tel: '119', label: '119 Emergency', sub: 'Fire · Ambulance' }
+};
+
+/**
+ * Place a real cellular call via tel: (mobile) or show dial instructions (desktop).
+ * Optionally copies GPS + hospital context to clipboard for the caller to relay.
+ */
+window.foundApp_placeEmergencyCall = function (phone, meta) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return false;
+
+  let geoLine = '';
+  if (meta && meta.lat != null && meta.lng != null) {
+    geoLine = `Patient GPS: ${Number(meta.lat).toFixed(5)}, ${Number(meta.lng).toFixed(5)}`;
+    if (meta.hospitalName) geoLine += ` | Nearest: ${meta.hospitalName}`;
+    if (meta.address) geoLine += ` | ${meta.address}`;
+  }
+
+  if (geoLine && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(`RESQNET EMERGENCY — ${geoLine}`).catch(() => {});
+  }
+
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+
+  if (isMobile) {
+    const link = document.createElement('a');
+    link.href = `tel:${digits}`;
+    link.setAttribute('aria-label', `Call emergency ${digits}`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } else {
+    const msg = geoLine
+      ? `Dial ${digits} on your phone now.\n\n${geoLine}\n\n(Coordinates copied to clipboard.)`
+      : `Dial ${digits} on your phone now. Desktop browsers cannot place calls directly.`;
+    window.alert(msg);
+  }
+
+  return true;
+};
+
+window.foundApp_authEmergencyCall = function (event, phone) {
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (typeof window.foundApp_placeEmergencyCall === 'function' && !isMobile) {
+          window.foundApp_placeEmergencyCall(phone, {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            hospitalName: 'Pre-login emergency'
+          });
+        } else if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard
+            .writeText(
+              `RESQNET EMERGENCY GPS: ${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`
+            )
+            .catch(() => {});
+        }
+      },
+      () => {
+        if (!isMobile && typeof window.foundApp_placeEmergencyCall === 'function') {
+          window.foundApp_placeEmergencyCall(phone, {});
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 6000 }
+    );
+  }
+
+  if (!isMobile) {
+    if (event && event.preventDefault) event.preventDefault();
+    if (typeof window.foundApp_placeEmergencyCall === 'function') {
+      window.foundApp_placeEmergencyCall(phone, {});
+    }
+    return false;
+  }
+  return true;
+};
+
+window.foundApp_onAmbulanceTap = function (event, hospitalId, city) {
+  if (typeof window.helpPortal_prepareAmbulanceDispatch === 'function') {
+    const result = window.helpPortal_prepareAmbulanceDispatch(hospitalId, city || 'Bengaluru');
+    if (result && result.useProgrammaticDial && event && event.preventDefault) {
+      event.preventDefault();
+    }
+  }
+  return true;
+};
+
 // ═══════════════════════════════════════════════════════════
 // EMERGENCY DATA DICTIONARY (City-aware, dynamic stream)
 // ═══════════════════════════════════════════════════════════

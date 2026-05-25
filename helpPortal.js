@@ -195,13 +195,15 @@ document.addEventListener('DOMContentLoaded', () => {
       .sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
-  function helpPortal_renderHospitalsCards(hospitals) {
+  function helpPortal_renderHospitalsCards(hospitals, city) {
     if (!hospitals.length) {
       return `<p class="text-xs text-slate-500">No government hospital registry for this region.</p>`;
     }
     return hospitals
       .map(
-        (h, idx) => `
+        (h, idx) => {
+          const row = { ...h, _city: city };
+          return `
       <article class="helpPortal-hospital-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm" role="listitem" data-hospital-id="${h.id}">
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
@@ -212,18 +214,23 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">Govt</span>
         </div>
-        <button type="button"
-                class="helpPortal-ambulance-btn w-full mt-3 bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white font-extrabold text-xs py-2.5 rounded-xl cursor-pointer shadow-sm shadow-rose-600/20"
-                data-hospital-id="${h.id}"
-                data-helpline="${h.helpline}">
+        <a href="tel:${h.helpline}"
+           role="button"
+           class="helpPortal-ambulance-btn w-full mt-3 bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white font-extrabold text-xs py-2.5 rounded-xl cursor-pointer shadow-sm shadow-rose-600/20 flex items-center justify-center gap-1.5 no-underline"
+           data-hospital-id="${h.id}"
+           data-helpline="${h.helpline}"
+           data-city="${city}"
+           onclick="return window.foundApp_onAmbulanceTap(event, '${row.id}', '${row._city}')">
+          <i class="fa-solid fa-truck-medical text-sm"></i>
           Call Ambulance &amp; Send Geo-Tag
-        </button>
-      </article>`
+        </a>
+      </article>`;
+        }
       )
       .join('');
   }
 
-  function helpPortal_renderHospitalsLbw(hospitals) {
+  function helpPortal_renderHospitalsLbw(hospitals, city) {
     if (!hospitals.length) {
       return `<p class="font-mono text-[11px] text-slate-600">No hospitals listed.</p>`;
     }
@@ -231,33 +238,62 @@ document.addEventListener('DOMContentLoaded', () => {
       .map(
         (h, idx) =>
           `<p class="font-mono text-[11px] text-slate-800 leading-relaxed border-b border-slate-200 pb-2 mb-2 last:border-0" data-hospital-id="${h.id}">` +
-          `${idx + 1}. ${h.name} | ${h.address} | ${h.distanceKm.toFixed(2)}km | tel:${h.helpline} ` +
-          `<button type="button" class="helpPortal-ambulance-btn text-rose-700 font-black underline ml-1 cursor-pointer" data-hospital-id="${h.id}" data-helpline="${h.helpline}">[DISPATCH]</button></p>`
+          `${idx + 1}. ${h.name} | ${h.address} | ${h.distanceKm.toFixed(2)}km | ` +
+          `<a href="tel:${h.helpline}" class="helpPortal-ambulance-btn text-rose-700 font-black underline cursor-pointer" data-hospital-id="${h.id}" data-helpline="${h.helpline}" onclick="return window.foundApp_onAmbulanceTap(event, '${h.id}', '${city}')">CALL ${h.helpline}</a></p>`
       )
       .join('');
   }
 
-  function helpPortal_showDispatchBanner(pos) {
+  function helpPortal_showDispatchBanner(pos, hospital) {
     const banner = document.getElementById('medical-dispatch-banner');
     if (!banner || !pos) return;
-    banner.textContent =
-      `⚠️ CRITICAL AMBULANCE DISPATCHED: Sending live coordinates [${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}] to emergency routing center.`;
+    const hospitalLine = hospital ? ` Routing to ${hospital.name}.` : '';
+    banner.innerHTML =
+      `<strong>Calling ${hospital ? hospital.helpline : '108'} now.</strong> Live coordinates ` +
+      `[${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}] copied for the dispatcher.${hospitalLine} ` +
+      `Tell them your GPS fix if asked.`;
     banner.classList.remove('hidden');
     window.clearTimeout(helpPortal_showDispatchBanner._timer);
-    helpPortal_showDispatchBanner._timer = window.setTimeout(() => banner.classList.add('hidden'), 9000);
+    helpPortal_showDispatchBanner._timer = window.setTimeout(() => banner.classList.add('hidden'), 12000);
   }
 
-  function helpPortal_dispatchAmbulance(hospitalId, city) {
+  function helpPortal_isMobileDevice() {
+    return /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  }
+
+  function helpPortal_prepareAmbulanceDispatch(hospitalId, city) {
     const hospitals = helpPortal_GOVT_HOSPITALS[city] || [];
     const hospital = hospitals.find((h) => h.id === hospitalId);
-    if (!hospital) return;
+    if (!hospital) return { ok: false };
 
     const baseline = helpPortal_getMedicalBaseline(city);
     const pos = helpPortal_medicalPosition || baseline;
+    const helpline = hospital.helpline || (city === 'Tokyo' ? '119' : '108');
 
-    window.location.href = 'tel:' + hospital.helpline;
-    helpPortal_showDispatchBanner(pos);
+    helpPortal_showDispatchBanner(pos, hospital);
+
+    const meta = {
+      lat: pos.lat,
+      lng: pos.lng,
+      hospitalName: hospital.name,
+      address: hospital.address
+    };
+
+    const geoLine = `Patient GPS: ${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)} | Nearest: ${hospital.name} | ${hospital.address}`;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(`RESQNET EMERGENCY — ${geoLine}`).catch(() => {});
+    }
+
+    const useProgrammaticDial = !helpPortal_isMobileDevice();
+    if (useProgrammaticDial && typeof window.foundApp_placeEmergencyCall === 'function') {
+      window.foundApp_placeEmergencyCall(helpline, meta);
+    }
+
+    return { ok: true, useProgrammaticDial };
   }
+
+  window.helpPortal_prepareAmbulanceDispatch = helpPortal_prepareAmbulanceDispatch;
+  window.helpPortal_triggerAmbulanceDispatch = helpPortal_prepareAmbulanceDispatch;
 
   function helpPortal_bindMedicalDispatchButtons(city) {
     const listEl = document.getElementById('hospital-list');
@@ -265,9 +301,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     listEl.querySelectorAll('.helpPortal-ambulance-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
-        e.preventDefault();
         const id = e.currentTarget.getAttribute('data-hospital-id');
-        helpPortal_dispatchAmbulance(id, city);
+        const linkCity = e.currentTarget.getAttribute('data-city') || city;
+        const result = helpPortal_prepareAmbulanceDispatch(id, linkCity);
+        if (result && result.useProgrammaticDial) {
+          e.preventDefault();
+        }
       });
     });
   }
@@ -314,8 +353,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const sorted = helpPortal_getSortedHospitals(city, origin);
       listEl.innerHTML = isLbw
-        ? helpPortal_renderHospitalsLbw(sorted)
-        : helpPortal_renderHospitalsCards(sorted);
+        ? helpPortal_renderHospitalsLbw(sorted, city)
+        : helpPortal_renderHospitalsCards(sorted, city);
       helpPortal_bindMedicalDispatchButtons(city);
     });
   }

@@ -256,30 +256,44 @@
           </div>
         </div>
 
-        <!-- Quick actions -->
-        <div class="auth-quick-bar mt-3 px-2 py-3 flex-shrink-0">
-          <div class="grid grid-cols-4 gap-1 text-center">
-            <div class="flex flex-col items-center gap-1 px-0.5">
-              <div class="relative">
-                <i class="fa-solid fa-phone text-[#001A4D] text-lg"></i>
-                <span class="absolute -top-1 -right-2 text-[7px] font-bold text-white bg-[#FF4D00] px-1 rounded">24/7</span>
-              </div>
-              <span class="text-[9px] font-semibold text-[#001A4D] leading-tight">Emergency Helpline</span>
-              <span class="text-[9px] font-bold text-[#001A4D]">1070 / 112</span>
-            </div>
-            <div class="flex flex-col items-center gap-1 px-0.5">
-              <i class="fa-solid fa-bullhorn text-[#001A4D] text-lg"></i>
-              <span class="text-[9px] font-semibold text-[#001A4D] leading-tight">Report Incident</span>
-            </div>
-            <div class="flex flex-col items-center gap-1 px-0.5">
-              <i class="fa-solid fa-book-open text-[#001A4D] text-lg"></i>
-              <span class="text-[9px] font-semibold text-[#001A4D] leading-tight">Guidelines</span>
-            </div>
-            <div class="flex flex-col items-center gap-1 px-0.5">
-              <i class="fa-solid fa-hands-holding-heart text-[#001A4D] text-lg"></i>
-              <span class="text-[9px] font-semibold text-[#001A4D] leading-tight">Safety Tips</span>
-            </div>
+        <!-- Quick actions — tap to dial live Indian emergency lines -->
+        <div class="auth-quick-bar mt-3 px-2.5 py-3 flex-shrink-0">
+          <p class="text-[9px] font-bold text-[#001A4D] text-center uppercase tracking-wider mb-2">Tap to call · 24/7</p>
+          <div class="grid grid-cols-2 gap-2">
+            <a href="tel:108"
+               class="auth-emergency-call flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl bg-rose-50 border-2 border-rose-200 active:scale-[0.98] transition-all no-underline"
+               aria-label="Call 108 ambulance"
+               onclick="return window.foundApp_authEmergencyCall(event, '108')">
+              <i class="fa-solid fa-truck-medical text-rose-600 text-lg"></i>
+              <span class="text-[10px] font-black text-rose-700 leading-none">108</span>
+              <span class="text-[9px] font-semibold text-rose-800 leading-tight text-center">Ambulance</span>
+            </a>
+            <a href="tel:112"
+               class="auth-emergency-call flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl bg-[#001A4D]/5 border-2 border-[#001A4D]/20 active:scale-[0.98] transition-all no-underline"
+               aria-label="Call 112 emergency response"
+               onclick="return window.foundApp_authEmergencyCall(event, '112')">
+              <i class="fa-solid fa-phone-volume text-[#001A4D] text-lg"></i>
+              <span class="text-[10px] font-black text-[#001A4D] leading-none">112</span>
+              <span class="text-[9px] font-semibold text-[#001A4D] leading-tight text-center">All Emergency</span>
+            </a>
+            <a href="tel:102"
+               class="auth-emergency-call flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl bg-emerald-50 border-2 border-emerald-200 active:scale-[0.98] transition-all no-underline"
+               aria-label="Call 102 medical emergency"
+               onclick="return window.foundApp_authEmergencyCall(event, '102')">
+              <i class="fa-solid fa-kit-medical text-emerald-700 text-lg"></i>
+              <span class="text-[10px] font-black text-emerald-800 leading-none">102</span>
+              <span class="text-[9px] font-semibold text-emerald-900 leading-tight text-center">Medical Line</span>
+            </a>
+            <a href="tel:1078"
+               class="auth-emergency-call flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl bg-amber-50 border-2 border-amber-200 active:scale-[0.98] transition-all no-underline"
+               aria-label="Call 1078 national disaster helpline"
+               onclick="return window.foundApp_authEmergencyCall(event, '1078')">
+              <i class="fa-solid fa-cloud-bolt text-amber-700 text-lg"></i>
+              <span class="text-[10px] font-black text-amber-800 leading-none">1078</span>
+              <span class="text-[9px] font-semibold text-amber-900 leading-tight text-center">NDMA Disaster</span>
+            </a>
           </div>
+          <p class="text-[8px] text-slate-400 text-center mt-2 leading-snug">Opens your phone dialer · 108 routes ambulances nationwide</p>
         </div>
 
         <p class="text-center text-[9px] text-slate-400 py-2 flex items-center justify-center gap-1 flex-shrink-0">
