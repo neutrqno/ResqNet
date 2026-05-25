@@ -432,7 +432,11 @@ function foundApp_toggleSiren() {
 // ═══════════════════════════════════════════════════════════
 function foundApp_render(state) {
   if (typeof window.i18n_applyDom === 'function') window.i18n_applyDom();
-  if (!state.isLoggedIn) return;
+  if (!state.isLoggedIn) {
+    const medicalSlotOut = document.getElementById('emergency-medical-slot');
+    if (medicalSlotOut) medicalSlotOut.classList.add('hidden');
+    return;
+  }
 
   // 1. Sync city dropdown & header label
   const dropdown = document.getElementById('city-dropdown');
@@ -476,6 +480,13 @@ function foundApp_render(state) {
   const mapSlot = document.getElementById('map-slot');
   const feedSlot = document.getElementById('feed-slot');
   const portalSlot = document.getElementById('portal-slot');
+  const medicalSlot = document.getElementById('emergency-medical-slot');
+  const showMedical = state.currentTab === 'volunteer';
+
+  if (medicalSlot) {
+    if (showMedical) medicalSlot.classList.remove('hidden');
+    else medicalSlot.classList.add('hidden');
+  }
 
   if (state.isLowBandwidth) {
     // Hide standard graphic slots
@@ -500,6 +511,10 @@ function foundApp_render(state) {
     if (state.currentTab === 'alerts' && feedSlot) feedSlot.classList.remove('hidden');
     if (state.currentTab === 'map' && mapSlot) mapSlot.classList.remove('hidden');
     if (state.currentTab === 'volunteer' && portalSlot) portalSlot.classList.remove('hidden');
+  }
+
+  if (showMedical && typeof window.helpPortal_refreshMedicalDispatch === 'function') {
+    window.helpPortal_refreshMedicalDispatch(state);
   }
 
   // 5. Render active bottom navbar tabs

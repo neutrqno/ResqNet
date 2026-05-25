@@ -402,6 +402,29 @@
         <!-- Low Bandwidth Dynamic Plain-Text Stream -->
         <div id="lbw-stream-view" class="hidden pt-3.5 fade-in"></div>
 
+        <!-- Emergency Medical Dispatch (Help Portal / NGO tab) -->
+        <div id="emergency-medical-slot" class="hidden pt-2">
+          <section id="emergency-medical-dispatch"
+                   class="bg-white border border-rose-100 rounded-2xl p-4 shadow-sm mb-4"
+                   aria-labelledby="emergency-medical-title">
+            <h3 id="emergency-medical-title" class="text-sm font-black text-rose-700 flex items-center gap-1.5">
+              <span aria-hidden="true">🚨</span> Emergency Medical Dispatch
+            </h3>
+            <p class="text-[10px] text-slate-500 mt-1 leading-relaxed">
+              Live GPS triage · nearest government hospitals · one-tap ambulance routing
+            </p>
+            <p id="medical-geo-tag"
+               class="mt-3 text-xs font-mono font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 select-all">
+              Your Current Geo-Tag: [Locating GPS…]
+            </p>
+            <div id="hospital-list" class="mt-3 space-y-3" role="list" aria-label="Nearest government hospitals"></div>
+          </section>
+          <div id="medical-dispatch-banner"
+               class="hidden mb-4 text-[11px] font-bold text-rose-900 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5 leading-snug"
+               role="alert"
+               aria-live="assertive"></div>
+        </div>
+
         <!-- Normal slot targets for other files -->
         <div id="map-slot"    class="hidden pt-2"></div>
         <div id="feed-slot"   class="hidden pt-2"></div>

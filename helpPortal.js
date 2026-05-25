@@ -56,6 +56,281 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // EMERGENCY MEDICAL DISPATCH — government hospitals by city
+  // ═══════════════════════════════════════════════════════════
+  const helpPortal_GOVT_HOSPITALS = {
+    Bengaluru: [
+      {
+        id: 'blr-victoria',
+        name: 'Victoria Hospital (Govt)',
+        address: 'K.R. Road, Fort, Bengaluru',
+        helpline: '108',
+        lat: 12.9658,
+        lng: 77.5882
+      },
+      {
+        id: 'blr-bowring',
+        name: 'Bowring and Lady Curzon Hospital',
+        address: 'Lady Curzon Road, Shivaji Nagar, Bengaluru',
+        helpline: '108',
+        lat: 12.9847,
+        lng: 77.6074
+      },
+      {
+        id: 'blr-kc-general',
+        name: 'KC General Hospital',
+        address: '5th Cross Rd, Malleswaram, Bengaluru',
+        helpline: '108',
+        lat: 12.9986,
+        lng: 77.5703
+      }
+    ],
+    Tokyo: [
+      {
+        id: 'tok-bokutoh',
+        name: 'Tokyo Metropolitan Bokutoh Hospital',
+        address: '4-23-15 Kotobashi, Sumida-ku, Tokyo',
+        helpline: '119',
+        lat: 35.7089,
+        lng: 139.8142
+      },
+      {
+        id: 'tok-hiroo',
+        name: 'Tokyo Metropolitan Hiroo Hospital',
+        address: '2-34-10 Ebisu, Shibuya-ku, Tokyo',
+        helpline: '119',
+        lat: 35.6525,
+        lng: 139.7136
+      },
+      {
+        id: 'tok-komagome',
+        name: 'Tokyo Metropolitan Komagome Hospital',
+        address: '3-18-22 Honkomagome, Bunkyo-ku, Tokyo',
+        helpline: '119',
+        lat: 35.7399,
+        lng: 139.7462
+      }
+    ]
+  };
+
+  const helpPortal_CITY_CENTER = {
+    Bengaluru: { lat: 12.9716, lng: 77.5946 },
+    Tokyo: { lat: 35.7285, lng: 139.5412 }
+  };
+
+  let helpPortal_medicalPosition = null;
+  let helpPortal_medicalPositionLive = false;
+  let helpPortal_medicalLastCity = '';
+
+  function helpPortal_medicalHaversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function helpPortal_getMedicalBaseline(city) {
+    return helpPortal_CITY_CENTER[city] || helpPortal_CITY_CENTER.Bengaluru;
+  }
+
+  function helpPortal_applyMedicalGeoTag(geoEl, pos, isLive, isFallback) {
+    if (!geoEl || !pos) return;
+    const coords = `Lat: ${pos.lat.toFixed(4)}, Lon: ${pos.lng.toFixed(4)}`;
+    if (isLive) {
+      geoEl.textContent = `Your Current Geo-Tag: ${coords}`;
+      geoEl.classList.remove('text-amber-800', 'bg-amber-50', 'border-amber-200');
+      geoEl.classList.add('text-slate-800', 'bg-slate-50', 'border-slate-200');
+    } else {
+      geoEl.textContent = `Your Current Geo-Tag: ${coords} (city baseline — enable GPS for live fix)`;
+      geoEl.classList.add('text-amber-800', 'bg-amber-50', 'border-amber-200');
+      geoEl.classList.remove('text-slate-800', 'bg-slate-50', 'border-slate-200');
+    }
+  }
+
+  function helpPortal_captureMedicalGps(onDone) {
+    const live = typeof window.mapHub_getLivePosition === 'function' ? window.mapHub_getLivePosition() : null;
+    if (live && live.lat != null && live.lng != null) {
+      helpPortal_medicalPosition = { lat: live.lat, lng: live.lng };
+      helpPortal_medicalPositionLive = true;
+      onDone();
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      helpPortal_medicalPosition = null;
+      helpPortal_medicalPositionLive = false;
+      onDone();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        helpPortal_medicalPosition = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        };
+        helpPortal_medicalPositionLive = true;
+        onDone();
+      },
+      () => {
+        helpPortal_medicalPosition = null;
+        helpPortal_medicalPositionLive = false;
+        onDone();
+      },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 12000 }
+    );
+  }
+
+  function helpPortal_getSortedHospitals(city, origin) {
+    const list = helpPortal_GOVT_HOSPITALS[city];
+    if (!list) return [];
+    return list
+      .map((h) => ({
+        ...h,
+        distanceKm: helpPortal_medicalHaversineKm(origin.lat, origin.lng, h.lat, h.lng)
+      }))
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  function helpPortal_renderHospitalsCards(hospitals) {
+    if (!hospitals.length) {
+      return `<p class="text-xs text-slate-500">No government hospital registry for this region.</p>`;
+    }
+    return hospitals
+      .map(
+        (h, idx) => `
+      <article class="helpPortal-hospital-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm" role="listitem" data-hospital-id="${h.id}">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <span class="text-[9px] font-black uppercase text-rose-600 tracking-wide">#${idx + 1} nearest</span>
+            <h4 class="text-xs font-black text-slate-900 mt-0.5 leading-snug">${h.name}</h4>
+            <p class="text-[10px] text-slate-500 mt-1 leading-relaxed">${h.address}</p>
+            <p class="text-[10px] font-mono text-indigo-700 mt-1">${h.distanceKm.toFixed(2)} km · Helpline ${h.helpline}</p>
+          </div>
+          <span class="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">Govt</span>
+        </div>
+        <button type="button"
+                class="helpPortal-ambulance-btn w-full mt-3 bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white font-extrabold text-xs py-2.5 rounded-xl cursor-pointer shadow-sm shadow-rose-600/20"
+                data-hospital-id="${h.id}"
+                data-helpline="${h.helpline}">
+          Call Ambulance &amp; Send Geo-Tag
+        </button>
+      </article>`
+      )
+      .join('');
+  }
+
+  function helpPortal_renderHospitalsLbw(hospitals) {
+    if (!hospitals.length) {
+      return `<p class="font-mono text-[11px] text-slate-600">No hospitals listed.</p>`;
+    }
+    return hospitals
+      .map(
+        (h, idx) =>
+          `<p class="font-mono text-[11px] text-slate-800 leading-relaxed border-b border-slate-200 pb-2 mb-2 last:border-0" data-hospital-id="${h.id}">` +
+          `${idx + 1}. ${h.name} | ${h.address} | ${h.distanceKm.toFixed(2)}km | tel:${h.helpline} ` +
+          `<button type="button" class="helpPortal-ambulance-btn text-rose-700 font-black underline ml-1 cursor-pointer" data-hospital-id="${h.id}" data-helpline="${h.helpline}">[DISPATCH]</button></p>`
+      )
+      .join('');
+  }
+
+  function helpPortal_showDispatchBanner(pos) {
+    const banner = document.getElementById('medical-dispatch-banner');
+    if (!banner || !pos) return;
+    banner.textContent =
+      `⚠️ CRITICAL AMBULANCE DISPATCHED: Sending live coordinates [${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}] to emergency routing center.`;
+    banner.classList.remove('hidden');
+    window.clearTimeout(helpPortal_showDispatchBanner._timer);
+    helpPortal_showDispatchBanner._timer = window.setTimeout(() => banner.classList.add('hidden'), 9000);
+  }
+
+  function helpPortal_dispatchAmbulance(hospitalId, city) {
+    const hospitals = helpPortal_GOVT_HOSPITALS[city] || [];
+    const hospital = hospitals.find((h) => h.id === hospitalId);
+    if (!hospital) return;
+
+    const baseline = helpPortal_getMedicalBaseline(city);
+    const pos = helpPortal_medicalPosition || baseline;
+
+    window.location.href = 'tel:' + hospital.helpline;
+    helpPortal_showDispatchBanner(pos);
+  }
+
+  function helpPortal_bindMedicalDispatchButtons(city) {
+    const listEl = document.getElementById('hospital-list');
+    if (!listEl) return;
+
+    listEl.querySelectorAll('.helpPortal-ambulance-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = e.currentTarget.getAttribute('data-hospital-id');
+        helpPortal_dispatchAmbulance(id, city);
+      });
+    });
+  }
+
+  function helpPortal_paintMedicalDispatch(state) {
+    const geoEl = document.getElementById('medical-geo-tag');
+    const listEl = document.getElementById('hospital-list');
+    const section = document.getElementById('emergency-medical-dispatch');
+    if (!geoEl || !listEl || !section) return;
+
+    const city = state.currentCity || 'Bengaluru';
+    const isLbw = !!state.isLowBandwidth;
+
+    if (isLbw) {
+      section.className = 'mb-4';
+      geoEl.className =
+        'mt-2 text-[11px] font-mono font-semibold text-slate-800 leading-relaxed select-all';
+      listEl.className = 'mt-2';
+    } else {
+      section.className =
+        'bg-white border border-rose-100 rounded-2xl p-4 shadow-sm mb-4';
+      geoEl.className =
+        'mt-3 text-xs font-mono font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 select-all';
+      listEl.className = 'mt-3 space-y-3';
+    }
+
+    const hospitalsRaw = helpPortal_GOVT_HOSPITALS[city];
+    if (!hospitalsRaw) {
+      geoEl.textContent = 'Your Current Geo-Tag: [City not in medical registry]';
+      listEl.innerHTML = isLbw
+        ? '<p class="font-mono text-[11px]">Switch to Bengaluru or Tokyo for hospital routing.</p>'
+        : '<p class="text-xs text-slate-500">Switch to Bengaluru or Tokyo for government hospital routing.</p>';
+      return;
+    }
+
+    geoEl.textContent = 'Your Current Geo-Tag: [Locating GPS…]';
+
+    helpPortal_captureMedicalGps(() => {
+      const baseline = helpPortal_getMedicalBaseline(city);
+      const origin = helpPortal_medicalPosition || baseline;
+      const isLive = helpPortal_medicalPositionLive && !!helpPortal_medicalPosition;
+
+      helpPortal_applyMedicalGeoTag(geoEl, origin, isLive, !isLive);
+
+      const sorted = helpPortal_getSortedHospitals(city, origin);
+      listEl.innerHTML = isLbw
+        ? helpPortal_renderHospitalsLbw(sorted)
+        : helpPortal_renderHospitalsCards(sorted);
+      helpPortal_bindMedicalDispatchButtons(city);
+    });
+  }
+
+  window.helpPortal_refreshMedicalDispatch = function (state) {
+    if (!state || !state.isLoggedIn) return;
+    if (state.currentTab !== 'volunteer') return;
+    if (typeof window.mapHub_ensureLiveTracking === 'function') {
+      window.mapHub_ensureLiveTracking();
+    }
+    helpPortal_paintMedicalDispatch(state);
+    helpPortal_medicalLastCity = state.currentCity || 'Bengaluru';
+  };
+
+  // ═══════════════════════════════════════════════════════════
   // CITIZEN INCIDENTS → NGO RESPONSE MISSIONS (no fake missions)
   // ═══════════════════════════════════════════════════════════
   function helpPortal_skillsFromCategory(category) {
@@ -250,10 +525,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const shouldDisplay = (state.currentTab === 'volunteer') && (!state.isLowBandwidth);
     if (!shouldDisplay) {
       portalSlot.innerHTML = '';
-      return;
+    } else {
+      helpPortal_renderPortal(portalSlot, state);
     }
 
-    helpPortal_renderPortal(portalSlot, state);
+    if (state.currentTab === 'volunteer') {
+      helpPortal_refreshMedicalDispatch(state);
+      if (helpPortal_medicalLastCity !== state.currentCity) {
+        helpPortal_medicalLastCity = state.currentCity;
+      }
+    }
   }
 
   // Hook global stubs from foundation.js to react dynamically
@@ -974,6 +1255,12 @@ document.addEventListener('DOMContentLoaded', () => {
     helpPortal_applyChatbotI18n();
 
     document.addEventListener('resqnet-lang-change', helpPortal_applyChatbotI18n);
+
+    window.addEventListener('resqnet-live-gps', () => {
+      if (window.appState && window.appState.currentTab === 'volunteer' && window.appState.isLoggedIn) {
+        helpPortal_refreshMedicalDispatch(window.appState);
+      }
+    });
 
     if (window.appState) {
       window.appState.subscribe(helpPortal_onStateUpdate);

@@ -3,16 +3,76 @@
  * @see https://leafletjs.com/
  */
 
+/** Verified emergency shelters & relief hubs (Bengaluru + Tokyo). */
+const REAL_SAFE_ZONES = {
+  Tokyo: [
+    {
+      id: 'tok-real-1',
+      name: 'Tanashi Elementary School Shelter',
+      lat: 35.7285,
+      lng: 139.5412,
+      address: '4-5-21 Tanashi-cho, Nishitokyo',
+      disasterType: 'Evacuation Center (Food/Water/Beds)',
+      badgeShort: 'Fire Evacuation Site'
+    },
+    {
+      id: 'tok-real-2',
+      name: 'Nishihara Nature Park Safe Zone',
+      lat: 35.7342,
+      lng: 139.5365,
+      address: '4-5 Nishihara-cho',
+      disasterType: 'Wide-Area Fire Evacuation Site',
+      badgeShort: 'Fire Evacuation Site'
+    },
+    {
+      id: 'tok-real-3',
+      name: 'Hibarigaoka Sports Field (Hibarium)',
+      lat: 35.7511,
+      lng: 139.5448,
+      address: '3-1 Hibarigaoka',
+      disasterType: 'Open-Air Safe Zone',
+      badgeShort: 'Open-Air Safe Zone'
+    }
+  ],
+  Bengaluru: [
+    {
+      id: 'blr-real-1',
+      name: 'BBMP Control Room & Relief Hub (South)',
+      lat: 12.9348,
+      lng: 77.6111,
+      address: '9th Main Rd, HSR Layout Sector 6',
+      disasterType: 'Flood Rescue & Boat Dispatch Unit',
+      badgeShort: 'Flood Rescue Hub'
+    },
+    {
+      id: 'blr-real-2',
+      name: 'GBA Community Relief Center (East)',
+      lat: 12.9716,
+      lng: 77.5946,
+      address: 'Near Cubbon Park / Forest Cell Depot',
+      disasterType: 'Medical Aid & Temporary Timber Depot Hub',
+      badgeShort: 'Medical Relief Hub'
+    },
+    {
+      id: 'blr-real-3',
+      name: 'National Disaster Response Force (NDRF) Base',
+      lat: 13.0358,
+      lng: 77.5978,
+      address: 'Hebbal Outer Ring Road Junction',
+      disasterType: 'Heavy Machinery & Transit Shelter',
+      badgeShort: 'NDRF Transit Shelter'
+    }
+  ]
+};
+
+window.REAL_SAFE_ZONES = REAL_SAFE_ZONES;
+
 const mapHub_citiesData = {
   Bengaluru: {
     lat: 12.9716,
     lon: 77.5946,
     zoom: 13,
-    shelters: [
-      { id: 'blr-s1', name: 'Govt Primary School Kengeri', address: '5th Main Rd, Kengeri', lat: 12.9030, lng: 77.4857, capacityText: '45/100', capacityPercent: 45, resources: ['food', 'medical', 'power'] },
-      { id: 'blr-s2', name: 'HSR Community Hall', address: 'Sector 3, HSR Layout', lat: 12.9116, lng: 77.6389, capacityText: '82/100', capacityPercent: 82, resources: ['food', 'power'] },
-      { id: 'blr-s3', name: 'Sports Complex Koramangala', address: '4th Block, Koramangala', lat: 12.9279, lng: 77.6271, capacityText: '29/100', capacityPercent: 29, resources: ['food', 'medical'] }
-    ]
+    shelters: []
   },
   Mumbai: {
     lat: 18.9750,
@@ -85,16 +145,113 @@ const mapHub_citiesData = {
     ]
   },
   Tokyo: {
-    lat: 35.6762,
-    lon: 139.6503,
-    zoom: 12,
-    shelters: [
-      { id: 'tok-s1', name: 'Shinjuku Shelter Unit 1', address: 'Nishi-Shinjuku, Tokyo', lat: 35.6938, lng: 139.7034, capacityText: '60/150', capacityPercent: 40, resources: ['medical', 'power'] },
-      { id: 'tok-s2', name: 'Chiyoda Community Center', address: 'Chiyoda-ku, Tokyo', lat: 35.6940, lng: 139.7530, capacityText: '120/200', capacityPercent: 60, resources: ['food', 'power', 'medical'] },
-      { id: 'tok-s3', name: 'Minato Disaster Arena', address: 'Shiba-Koen, Minato-ku', lat: 35.6586, lng: 139.7454, capacityText: '45/100', capacityPercent: 45, resources: ['food', 'medical'] }
-    ]
+    lat: 35.7285,
+    lon: 139.5412,
+    zoom: 13,
+    shelters: []
   }
 };
+
+const mapHub_VERIFIED_CITIES = new Set(['Bengaluru', 'Tokyo']);
+
+function mapHub_disasterBadgeClass(disasterType) {
+  const t = (disasterType || '').toLowerCase();
+  if (t.includes('flood') || t.includes('boat')) return 'bg-sky-100 text-sky-800 border-sky-200';
+  if (t.includes('fire') || t.includes('evacuation')) return 'bg-orange-100 text-orange-900 border-orange-200';
+  if (t.includes('medical') || t.includes('timber')) return 'bg-emerald-100 text-emerald-900 border-emerald-200';
+  if (t.includes('ndrf') || t.includes('machinery') || t.includes('transit')) return 'bg-indigo-100 text-indigo-900 border-indigo-200';
+  if (t.includes('open-air')) return 'bg-amber-100 text-amber-900 border-amber-200';
+  return 'bg-slate-100 text-slate-700 border-slate-200';
+}
+
+function mapHub_normalizeShelter(zone) {
+  return {
+    id: zone.id,
+    name: zone.name,
+    address: zone.address,
+    lat: zone.lat,
+    lng: zone.lng,
+    disasterType: zone.disasterType,
+    badgeShort: zone.badgeShort || zone.disasterType,
+    capacityText: `GPS ${zone.lat.toFixed(4)}, ${zone.lng.toFixed(4)}`,
+    capacityPercent: 100,
+    resources: [zone.badgeShort || 'verified'],
+    verified: true
+  };
+}
+
+function mapHub_getSheltersForCity(cityKey) {
+  const verified = REAL_SAFE_ZONES[cityKey];
+  if (verified && verified.length) return verified.map(mapHub_normalizeShelter);
+  const city = mapHub_citiesData[cityKey];
+  return city && city.shelters.length ? city.shelters : [];
+}
+
+function mapHub_findShelter(campId, cityKey) {
+  return mapHub_getSheltersForCity(cityKey).find((s) => s.id === campId) || null;
+}
+
+function mapHub_shelterPopupHtml(s) {
+  const badgeClass = mapHub_disasterBadgeClass(s.disasterType);
+  const badge = s.badgeShort || s.disasterType || 'Safe zone';
+  return (
+    `<strong>${s.name}</strong><br>` +
+    `<span class="inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}">${badge}</span><br>` +
+    `<span style="font-size:11px;color:#334155">${s.address}</span><br>` +
+    `<span style="font-size:10px;font-family:ui-monospace,monospace;color:#64748b">` +
+    `GPS: ${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}</span>` +
+    (s.disasterType ? `<br><span style="font-size:10px;color:#475569">${s.disasterType}</span>` : '')
+  );
+}
+
+function mapHub_buildLowBandwidthShelterHtml(zones) {
+  if (!zones.length) {
+    return `<p class="text-[10px] text-slate-500 font-mono">No verified shelters for this city.</p>`;
+  }
+  return zones
+    .map((z) => {
+      const s = mapHub_normalizeShelter(z);
+      return (
+        `<div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm font-mono text-[11px]">` +
+        `<div class="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">` +
+        `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ${s.name}</div>` +
+        `<div class="text-[9px] font-bold text-indigo-700 mt-1 uppercase tracking-wide">${s.badgeShort}</div>` +
+        `<div class="text-[10.5px] text-slate-600 mt-1 leading-relaxed">${s.address}</div>` +
+        `<div class="text-[10px] text-slate-500 mt-1 select-all">GPS: ${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}</div>` +
+        `<div class="text-[10px] text-slate-500 mt-0.5">${s.disasterType}</div>` +
+        `</div>`
+      );
+    })
+    .join('');
+}
+
+function mapHub_syncLowBandwidthShelters(cityKey) {
+  const container = document.getElementById('lbw-stream-view');
+  if (!container) return;
+  const zones = REAL_SAFE_ZONES[cityKey];
+  if (!zones || !zones.length) return;
+
+  const headers = [...container.querySelectorAll('h3')];
+  const shelterHeader = headers.find((h) => /shelter/i.test(h.textContent));
+  if (!shelterHeader) return;
+
+  const section = shelterHeader.closest('.space-y-2');
+  const listContainer = section && section.querySelector(':scope > .space-y-2');
+  if (!listContainer) return;
+
+  listContainer.innerHTML = mapHub_buildLowBandwidthShelterHtml(zones);
+}
+
+window.mapHub_getLowBandwidthShelterLines = function (cityKey) {
+  const zones = REAL_SAFE_ZONES[cityKey];
+  if (!zones || !zones.length) return null;
+  return zones.map(
+    (z) =>
+      `${z.name}: ${z.address} | GPS ${z.lat.toFixed(4)}, ${z.lng.toFixed(4)} | ${z.badgeShort} — ${z.disasterType}`
+  );
+};
+
+window.mapHub_getSheltersForCity = mapHub_getSheltersForCity;
 
 let mapHub_map = null;
 let mapHub_routeLayer = null;
@@ -282,6 +439,10 @@ function mapHub_onStateUpdate(state) {
     return;
   }
 
+  if (state.isLowBandwidth) {
+    queueMicrotask(() => mapHub_syncLowBandwidthShelters(state.currentCity || 'Bengaluru'));
+  }
+
   mapHub_checkSirenStatus(state.isSirenActive);
   mapHub_mapTabActive = state.currentTab === 'map' && !state.isLowBandwidth;
 
@@ -314,6 +475,7 @@ function mapHub_onStateUpdate(state) {
   if (cityChanged) {
     mapHub_closeShelterSheet();
     mapHub_clearDirections();
+    mapHub_clearShelterMarkers();
     mapHub_lastCity = state.currentCity;
   }
 
@@ -359,8 +521,11 @@ function mapHub_renderShell(parent) {
         <div class="w-8 h-1 bg-slate-200 rounded-full mx-auto mb-3"></div>
         <h3 id="mapHub-sheet-camp-name" class="text-sm font-bold text-slate-900">—</h3>
         <p id="mapHub-sheet-camp-address" class="text-xs text-slate-500 mt-0.5">—</p>
+        <p id="mapHub-sheet-coords" class="text-[10px] text-slate-500 mt-1 font-mono select-all">—</p>
+        <span id="mapHub-sheet-type-badge" class="inline-block mt-2 text-[9px] font-bold px-2 py-0.5 rounded-full border hidden">—</span>
+        <p id="mapHub-sheet-disaster-type" class="text-[10px] text-slate-600 mt-2 leading-snug hidden">—</p>
         <p id="mapHub-sheet-capacity-text" class="text-xs text-slate-600 mt-2 font-mono">—</p>
-        <div class="w-full h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
+        <div id="mapHub-sheet-capacity-wrap" class="w-full h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
           <div id="mapHub-sheet-capacity-bar" class="h-full bg-emerald-500 rounded-full" style="width:0%"></div>
         </div>
         <div id="mapHub-sheet-resources-container" class="flex flex-wrap gap-1 mt-2"></div>
@@ -378,7 +543,24 @@ function mapHub_refreshMap(cityKey, rebuild) {
     return;
   }
   if (rebuild) mapHub_buildMap(cityKey);
-  else if (mapHub_map) setTimeout(() => mapHub_map.invalidateSize(), 150);
+  else if (mapHub_map) {
+    mapHub_clearShelterMarkers();
+    mapHub_renderSafeZoneMarkers(cityKey);
+    setTimeout(() => mapHub_map.invalidateSize(), 150);
+  }
+}
+
+function mapHub_renderSafeZoneMarkers(cityKey) {
+  if (!mapHub_map) return;
+  mapHub_clearShelterMarkers();
+
+  const shelters = mapHub_getSheltersForCity(cityKey);
+  shelters.forEach((s) => {
+    const m = L.marker([s.lat, s.lng], { icon: mapHub_shelterIcon() }).addTo(mapHub_map);
+    m.bindPopup(mapHub_shelterPopupHtml(s));
+    m.on('click', () => mapHub_selectShelter(s.id, cityKey));
+    mapHub_shelterMarkers.push(m);
+  });
 }
 
 function mapHub_destroyMap() {
@@ -411,19 +593,20 @@ function mapHub_buildMap(cityKey) {
 
   mapHub_destroyMap();
 
-  mapHub_map = L.map(mapEl, { zoomControl: true }).setView([city.lat, city.lon], city.zoom);
+  const shelters = mapHub_getSheltersForCity(cityKey);
+  const center =
+    shelters.length && mapHub_VERIFIED_CITIES.has(cityKey)
+      ? { lat: shelters[0].lat, lon: shelters[0].lng, zoom: city.zoom }
+      : { lat: city.lat, lon: city.lon, zoom: city.zoom };
+
+  mapHub_map = L.map(mapEl, { zoomControl: true }).setView([center.lat, center.lon], center.zoom);
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }).addTo(mapHub_map);
 
-  city.shelters.forEach((s) => {
-    const m = L.marker([s.lat, s.lng], { icon: mapHub_shelterIcon() }).addTo(mapHub_map);
-    m.bindPopup(`<strong>${s.name}</strong><br><span style="font-size:11px">${s.address}</span>`);
-    m.on('click', () => mapHub_selectShelter(s.id, cityKey));
-    mapHub_shelterMarkers.push(m);
-  });
+  mapHub_renderSafeZoneMarkers(cityKey);
 
   mapHub_renderCommunityHazards(cityKey);
   mapHub_renderSignalMarkers();
@@ -631,23 +814,57 @@ function mapHub_scheduleRouteRefresh() {
 }
 
 function mapHub_selectShelter(campId, cityKey) {
-  const city = mapHub_citiesData[cityKey];
-  const camp = city && city.shelters.find((s) => s.id === campId);
+  const camp = mapHub_findShelter(campId, cityKey);
   if (!camp) return;
 
   document.getElementById('mapHub-sheet-camp-name').textContent = camp.name;
   document.getElementById('mapHub-sheet-camp-address').textContent = camp.address;
-  document.getElementById('mapHub-sheet-capacity-text').textContent = camp.capacityText;
-  document.getElementById('mapHub-sheet-capacity-bar').style.width = `${camp.capacityPercent}%`;
+
+  const coordsEl = document.getElementById('mapHub-sheet-coords');
+  if (coordsEl) coordsEl.textContent = `${camp.lat.toFixed(4)}, ${camp.lng.toFixed(4)}`;
+
+  const typeBadge = document.getElementById('mapHub-sheet-type-badge');
+  const disasterEl = document.getElementById('mapHub-sheet-disaster-type');
+  const capWrap = document.getElementById('mapHub-sheet-capacity-wrap');
+  const capText = document.getElementById('mapHub-sheet-capacity-text');
+  const capBar = document.getElementById('mapHub-sheet-capacity-bar');
+
+  if (camp.verified) {
+    if (typeBadge) {
+      typeBadge.textContent = camp.badgeShort || camp.disasterType;
+      typeBadge.className = `inline-block mt-2 text-[9px] font-bold px-2 py-0.5 rounded-full border ${mapHub_disasterBadgeClass(camp.disasterType)}`;
+      typeBadge.classList.remove('hidden');
+    }
+    if (disasterEl) {
+      disasterEl.textContent = camp.disasterType;
+      disasterEl.classList.remove('hidden');
+    }
+    if (capWrap) capWrap.classList.add('hidden');
+    if (capText) capText.textContent = 'Official verified relief site';
+    if (capBar) capBar.style.width = '100%';
+  } else {
+    if (typeBadge) typeBadge.classList.add('hidden');
+    if (disasterEl) disasterEl.classList.add('hidden');
+    if (capWrap) capWrap.classList.remove('hidden');
+    if (capText) capText.textContent = camp.capacityText;
+    if (capBar) capBar.style.width = `${camp.capacityPercent}%`;
+  }
 
   const badgeContainer = document.getElementById('mapHub-sheet-resources-container');
   badgeContainer.innerHTML = '';
-  camp.resources.forEach((r) => {
+  if (camp.verified && camp.badgeShort) {
     const b = document.createElement('span');
-    b.className = 'text-[9px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600';
-    b.textContent = r;
+    b.className = `text-[9px] px-2 py-0.5 rounded-full border font-bold ${mapHub_disasterBadgeClass(camp.disasterType)}`;
+    b.textContent = camp.badgeShort;
     badgeContainer.appendChild(b);
-  });
+  } else {
+    (camp.resources || []).forEach((r) => {
+      const b = document.createElement('span');
+      b.className = 'text-[9px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600';
+      b.textContent = r;
+      badgeContainer.appendChild(b);
+    });
+  }
 
   document.getElementById('mapHub-sheet-route-btn').onclick = () => mapHub_showDirections(camp);
   document.getElementById('mapHub-sheet-external-btn').onclick = () => mapHub_openExternalMaps(camp);
@@ -752,11 +969,14 @@ function mapHub_clearDirections() {
 function mapHub_routeToNearestShelter() {
   const cityKey = (window.appState && window.appState.currentCity) || 'Bengaluru';
   const city = mapHub_citiesData[cityKey] || mapHub_citiesData.Bengaluru;
+  const shelters = mapHub_getSheltersForCity(cityKey);
+  if (!shelters.length) return;
+
   mapHub_ensureLiveTracking();
   const origin = mapHub_userPosition || { lat: city.lat, lng: city.lon };
-  let nearest = city.shelters[0];
+  let nearest = shelters[0];
   let minD = Infinity;
-  city.shelters.forEach((s) => {
+  shelters.forEach((s) => {
     const d = mapHub_haversineKm(origin.lat, origin.lng, s.lat, s.lng);
     if (d < minD) {
       minD = d;
