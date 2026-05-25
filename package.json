@@ -1,0 +1,14 @@
+{
+  "name": "resqnet-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ResqNet disaster response app with SQL backend",
+  "scripts": {
+    "start": "node server/index.js",
+    "db:init": "node server/init-db.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2"
+  }
+}

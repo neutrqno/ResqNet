@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ResqNet – Disaster Response</title>
+
+  <!-- Google Font: Inter for premium typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  <!-- FontAwesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <!-- Leaflet — https://leafletjs.com/ -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <style type="text/tailwindcss">
+    @layer base {
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 0; background: #f1f5f9; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+      ::-webkit-scrollbar { width: 0px; }
+    }
+
+    @layer utilities {
+      .tab-btn-active { @apply text-indigo-600 border-t-2 border-indigo-600 bg-slate-50/50; }
+      .tab-btn-inactive { @apply text-slate-400 border-t-2 border-transparent hover:text-slate-600; }
+      .otp-input { @apply bg-white border border-slate-200 rounded-lg text-center text-2xl font-bold text-slate-800 w-11 h-12 focus:outline-none focus:border-[#1e3a8a] focus:ring-2 focus:ring-[#1e3a8a]/15 caret-[#1e3a8a] transition-all; }
+      .auth-primary-btn { @apply w-full bg-[#1e3a8a] hover:bg-[#1e40af] active:scale-[0.99] text-white font-semibold py-3.5 rounded-lg transition-all shadow-sm cursor-pointer; }
+      .auth-field { @apply w-full px-4 py-3.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#1e3a8a] focus:ring-2 focus:ring-[#1e3a8a]/10 transition-all; }
+      .auth-social-btn { @apply w-11 h-11 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all cursor-pointer; }
+      .auth-lang-select { @apply text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg pl-2 pr-7 py-1.5 focus:outline-none focus:border-[#1e3a8a] appearance-none cursor-pointer; }
+      .city-select { @apply bg-white border border-slate-200 text-slate-800 text-xs font-medium rounded-lg pl-2.5 pr-6 py-1.5 focus:outline-none focus:border-indigo-600 appearance-none cursor-pointer transition-all shadow-sm; }
+      .toggle-track { @apply relative inline-flex items-center w-11 h-6 rounded-full cursor-pointer transition-colors duration-300; }
+      .toggle-thumb { @apply absolute left-0.5 top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-300; }
+      .lbw-stream-card { @apply bg-white border border-slate-100 rounded-xl p-4 mb-3 font-mono text-xs shadow-sm hover:border-slate-200 transition-all; }
+      .pulse-ring { animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
+      @keyframes pulse-ring {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.6); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(225, 29, 72, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+      }
+      .slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      @keyframes slideUp {
+        from { transform: translateY(24px); opacity: 0; }
+        to   { transform: translateY(0);   opacity: 1; }
+      }
+      .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      .shake { animation: shake 0.45s cubic-bezier(.36,.07,.19,.97) both; }
+      @keyframes shake {
+        10%, 90% { transform: translateX(-2px); }
+        20%, 80% { transform: translateX(4px); }
+        30%, 50%, 70% { transform: translateX(-4px); }
+        40%, 60% { transform: translateX(4px); }
+      }
+    }
+  </style>
+</head>
+
+<body class="h-full flex items-center justify-center bg-slate-100 overflow-hidden">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SMARTPHONE CANVAS SHELL (Light Mode Optimized)
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="max-w-md mx-auto w-full h-screen bg-white text-slate-800 flex flex-col relative overflow-hidden shadow-2xl border-x border-slate-200">
+
+    <!-- ─── STATUS BAR (cosmetic status indicator) ──────────────── -->
+    <div class="flex items-center justify-between px-5 pt-2 pb-1 bg-white z-40 flex-shrink-0 border-b border-slate-50 select-none">
+      <span id="status-time" class="text-xs font-semibold text-slate-500">09:41</span>
+      <div class="flex items-center gap-1.5 text-slate-500 text-[10px]">
+        <i class="fa-solid fa-signal"></i>
+        <i class="fa-solid fa-wifi"></i>
+        <i class="fa-solid fa-battery-three-quarters text-xs"></i>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         AUTH SCREEN  (z-50, absolute overlay)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="foundApp-auth-screen" class="absolute inset-0 z-50 bg-white flex flex-col">
+
+      <!-- Top: language -->
+      <div class="flex justify-end px-6 pt-3 pb-1 flex-shrink-0">
+        <select class="i18n-language-select auth-lang-select max-w-[110px]" onchange="i18n_setLanguage(this.value)" aria-label="Language"></select>
+      </div>
+
+      <div class="flex-1 flex flex-col justify-center px-8 pb-10 overflow-y-auto">
+        <!-- Logo -->
+        <div class="text-center mb-8 slide-up">
+          <div class="inline-block relative">
+            <span class="absolute -top-2 left-[4.55rem] flex gap-[3px]" aria-hidden="true">
+              <span class="w-1 h-1 rounded-full bg-[#1e3a8a]"></span>
+              <span class="w-1 h-1 rounded-full bg-[#1e3a8a]"></span>
+              <span class="w-1 h-1 rounded-full bg-[#1e3a8a]"></span>
+              <span class="w-1 h-1 rounded-full bg-[#1e3a8a]"></span>
+            </span>
+            <h1 class="text-3xl font-bold text-[#1e3a8a] tracking-tight">ResqNet</h1>
+          </div>
+        </div>
+
+        <div id="foundApp-auth-form" class="w-full max-w-sm mx-auto slide-up">
+          <h2 id="auth-page-title" class="text-center text-lg font-semibold text-slate-700 mb-6" data-i18n="loginTitle">Login to your Account</h2>
+
+          <!-- Phone step -->
+          <div id="auth-step-phone" class="flex flex-col gap-4">
+            <input id="auth-phone-input"
+                   type="tel"
+                   inputmode="numeric"
+                   maxlength="10"
+                   data-i18n-placeholder="phonePlaceholder"
+                   placeholder="Mobile number"
+                   class="auth-field"
+                   aria-label="Mobile number" />
+
+            <p id="auth-phone-error" class="text-red-600 text-xs hidden text-center">
+              <span data-i18n="invalidPhone">Enter a valid 10-digit mobile number.</span>
+            </p>
+
+            <button id="auth-send-otp-btn" type="button" onclick="foundApp_sendOTP()" class="auth-primary-btn">
+              <span data-i18n="signInContinue">Sign in</span>
+            </button>
+
+            <div class="flex items-center gap-3 my-2">
+              <div class="flex-1 h-px bg-slate-200"></div>
+              <span class="text-xs text-slate-400 whitespace-nowrap" data-i18n="orSignInWith">- Or sign in with -</span>
+              <div class="flex-1 h-px bg-slate-200"></div>
+            </div>
+
+            <div class="flex justify-center gap-4">
+              <button type="button" class="auth-social-btn" title="Google" aria-label="Google">
+                <i class="fa-brands fa-google text-lg"></i>
+              </button>
+              <button type="button" class="auth-social-btn" title="Facebook" aria-label="Facebook">
+                <i class="fa-brands fa-facebook-f text-[#1877f2]"></i>
+              </button>
+              <button type="button" class="auth-social-btn" title="Twitter" aria-label="Twitter">
+                <i class="fa-brands fa-x-twitter text-lg"></i>
+              </button>
+            </div>
+
+            <p class="text-center text-sm text-slate-500 mt-4">
+              <span data-i18n="noAccount">Don't have an account?</span>
+              <button type="button" onclick="foundApp_showAuthSignUpHint()" class="text-[#1e3a8a] font-semibold hover:underline ml-1 cursor-pointer" data-i18n="signUp">Sign up</button>
+            </p>
+          </div>
+
+          <!-- OTP step -->
+          <div id="auth-step-otp" class="flex flex-col gap-5 hidden">
+            <button type="button" onclick="foundApp_backToPhone()"
+                    class="self-start text-slate-500 text-sm hover:text-[#1e3a8a] flex items-center gap-1 cursor-pointer -mt-2">
+              <i class="fa-solid fa-arrow-left text-xs"></i>
+              <span data-i18n="changeNumber">Back</span>
+            </button>
+
+            <p class="text-center text-sm text-slate-600">
+              <span data-i18n="otpHint">Code sent to mobile ending in</span>
+              <span id="otp-phone-suffix" class="font-semibold text-slate-800"> ****</span>
+            </p>
+
+            <div class="flex justify-center gap-3" id="otp-boxes-container">
+              <input type="tel" inputmode="numeric" maxlength="1" class="otp-input" id="otp-d1" autocomplete="one-time-code" />
+              <input type="tel" inputmode="numeric" maxlength="1" class="otp-input" id="otp-d2" autocomplete="off" />
+              <input type="tel" inputmode="numeric" maxlength="1" class="otp-input" id="otp-d3" autocomplete="off" />
+              <input type="tel" inputmode="numeric" maxlength="1" class="otp-input" id="otp-d4" autocomplete="off" />
+            </div>
+
+            <p id="auth-otp-error" class="text-red-600 text-xs hidden text-center">
+              <span data-i18n="invalidOtp">Invalid code. Try again.</span>
+            </p>
+
+            <button id="auth-verify-btn" type="button" onclick="foundApp_verifyOTP()" class="auth-primary-btn">
+              <span data-i18n="signIn">Sign in</span>
+            </button>
+
+            <div class="flex items-center justify-center gap-1.5 text-sm">
+              <span class="text-slate-500" data-i18n="didNotReceive">Didn't receive?</span>
+              <button id="auth-resend-btn" type="button" onclick="foundApp_resendOTP()"
+                      class="text-[#1e3a8a] font-semibold hover:underline disabled:text-slate-400 disabled:no-underline cursor-pointer">
+                <span data-i18n="resendOtp">Resend</span>
+              </button>
+              <span id="auth-resend-timer" class="text-slate-400 hidden">(30s)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-center text-[10px] text-slate-400 pb-4 px-6 flex-shrink-0 select-none">
+        <span data-i18n="devBypass">Demo OTP:</span> <span class="font-mono font-semibold text-slate-500">4040</span>
+      </p>
+    </div>
+    <!-- /auth-screen -->
+
+    <!-- ═══════════════════════════════════════════════════════
+         MAIN APP LAYOUT  (hidden until auth passes)
+    ═══════════════════════════════════════════════════════ -->
+    <div id="foundApp-main-layout" class="hidden flex-col h-full w-full">
+
+      <!-- ── TOP BAR HEADER ──────────────────────────────────── -->
+      <div class="flex items-center justify-between px-4 py-2.5 bg-white border-b border-slate-200 flex-shrink-0 z-30 shadow-sm">
+
+        <!-- Left: Logo + City Dropdown select -->
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <i class="fa-solid fa-shield-halved text-indigo-600 text-xs"></i>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-slate-900 text-xs font-extrabold tracking-tight leading-none mb-1">ResqNet</span>
+            <div class="flex items-center gap-1 leading-none">
+              <i class="fa-solid fa-location-dot text-slate-400 text-[10px]"></i>
+              <div class="relative flex items-center">
+                <select id="city-dropdown"
+                        onchange="foundApp_onCityChange(this.value)"
+                        class="city-select">
+                  <option value="Bengaluru">Bengaluru</option>
+                  <option value="Mumbai">Mumbai</option>
+                  <option value="Chennai">Chennai</option>
+                  <option value="Delhi">Delhi</option>
+                  <option value="Kolkata">Kolkata</option>
+                  <option value="Hyderabad">Hyderabad</option>
+                  <option value="Pune">Pune</option>
+                  <option value="Ahmedabad">Ahmedabad</option>
+                </select>
+                <i class="fa-solid fa-chevron-down text-slate-400 text-[8px] absolute right-2 pointer-events-none"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Language, Siren, LBW -->
+        <div class="flex items-center gap-2 select-none">
+
+          <select class="i18n-language-select city-select text-[10px] max-w-[88px] py-1" onchange="i18n_setLanguage(this.value)" data-i18n-title="language" title="Language" aria-label="Language"></select>
+
+          <!-- Siren Button -->
+          <button id="siren-btn"
+                  onclick="foundApp_toggleSiren()"
+                  data-i18n-title="sirenTitle"
+                  title="Manual emergency siren (tap to sound)"
+                  class="w-8 h-8 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center hover:border-rose-400/50 hover:bg-rose-50/20 transition-all active:scale-90 cursor-pointer">
+            <i id="siren-icon" class="fa-solid fa-bullhorn text-slate-500 text-xs transition-colors"></i>
+          </button>
+
+          <!-- Low Bandwidth Toggle Switch -->
+          <div class="flex items-center gap-1.5" data-i18n-title="lbwMode" title="Low Bandwidth Mode">
+            <i class="fa-solid fa-tower-broadcast text-slate-400 text-xs"></i>
+            <label class="toggle-track bg-slate-200" id="lbw-track" onclick="foundApp_toggleLowBandwidth()">
+              <span class="toggle-thumb" id="lbw-thumb"></span>
+            </label>
+            <span id="lbw-label" class="text-[9px] font-bold text-slate-400 uppercase tracking-wide leading-none" data-i18n="lbwLabel">LBW</span>
+          </div>
+        </div>
+      </div>
+      <!-- /top-bar -->
+
+      <!-- ── CONTENT VIEWPORT ───────────────────────────────── -->
+      <div id="foundApp-content-viewport" class="flex-1 overflow-y-auto pb-24 px-4 bg-slate-50/50">
+
+        <!-- Low Bandwidth Dynamic Plain-Text Stream -->
+        <div id="lbw-stream-view" class="hidden pt-3.5 fade-in"></div>
+
+        <!-- Normal slot targets for other files -->
+        <div id="map-slot"    class="hidden pt-2"></div>
+        <div id="feed-slot"   class="hidden pt-2"></div>
+        <div id="portal-slot" class="hidden pt-2"></div>
+
+      </div>
+      <!-- /content-viewport -->
+
+      <!-- ── STICKY BOTTOM TAB NAVIGATION ───────────────────── -->
+      <div class="absolute bottom-0 left-0 right-0 h-20 bg-white border-t border-slate-200 flex items-stretch z-30 select-none" id="bottom-navbar">
+
+        <!-- Alerts Tab Button -->
+        <button id="tab-btn-alerts"
+                onclick="foundApp_switchTab('alerts')"
+                class="flex-1 flex flex-col items-center justify-center gap-1.5 tab-btn-active transition-all duration-150 cursor-pointer">
+          <div class="relative">
+            <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+            <span id="alert-badge" class="absolute -top-1.5 -right-2.5 w-4.5 h-4.5 rounded-full bg-rose-500 text-white text-[8px] font-black flex items-center justify-center border-2 border-white hidden">0</span>
+          </div>
+          <span class="text-[9px] font-bold uppercase tracking-wider" data-i18n="tabAlerts">Alerts</span>
+        </button>
+
+        <!-- Live Map Tab Button -->
+        <button id="tab-btn-map"
+                onclick="foundApp_switchTab('map')"
+                class="flex-1 flex flex-col items-center justify-center gap-1.5 tab-btn-inactive transition-all duration-150 cursor-pointer">
+          <i class="fa-solid fa-map-location-dot text-lg"></i>
+          <span class="text-[9px] font-bold uppercase tracking-wider" data-i18n="tabMap">Live Map</span>
+        </button>
+
+        <!-- NGO Response Tab Button -->
+        <button id="tab-btn-volunteer"
+                onclick="foundApp_switchTab('volunteer')"
+                class="flex-1 flex flex-col items-center justify-center gap-1.5 tab-btn-inactive transition-all duration-150 cursor-pointer">
+          <i class="fa-solid fa-building-flag text-lg"></i>
+          <span class="text-[9px] font-bold uppercase tracking-wider" data-i18n="tabNgo">NGO</span>
+        </button>
+
+      </div>
+      <!-- /bottom-navbar -->
+
+    </div>
+    <!-- /main-layout -->
+
+    <!-- Chatbot Slot (other file target) -->
+    <div id="chatbot-slot" class="absolute inset-x-0 bottom-20 z-40 pointer-events-none"></div>
+
+  </div>
+  <!-- /smartphone-canvas -->
+
+  <!-- ═══════════════════════════════════════════════════════
+       SCRIPT TAGS (ordered exactly per specs)
+  ═══════════════════════════════════════════════════════ -->
+  <script src="i18n.js" defer></script>
+  <script src="foundation.js" defer></script>
+  <script src="mapHub.js" defer></script>
+  <script src="signalsHub.js" defer></script>
+  <script src="sirenHub.js" defer></script>
+  <script src="dbApi.js" defer></script>
+  <script src="alertFeed.js" defer></script>
+  <script src="helpPortal.js" defer></script>
+
+</body>
+</html>
