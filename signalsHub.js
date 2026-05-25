@@ -68,6 +68,9 @@ let signalsHub_cache = {
   risk: { score: 0, label: '—', factors: [] }
 };
 
+let signalsHub_isExpanded = false;
+let signalsHub_activeTab = 'weather'; // 'weather' | 'earthquakes' | 'eonet' | 'imd'
+
 let signalsHub_earthquakeMarkers = [];
 let signalsHub_eonetMarkers = [];
 
@@ -388,116 +391,293 @@ function signalsHub_drawDashboardHTML(city) {
   const w = s.weather;
   const updated = new Date(s.fetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  let eqHtml = '';
-  if (s.earthquakes.length === 0) {
-    eqHtml = `<p class="text-xs text-slate-500">No M4+ quakes within region (7 days).</p>`;
-  } else {
-    eqHtml = `<div class="space-y-1.5 max-h-32 overflow-y-auto">${s.earthquakes
-      .slice(0, 6)
+  // Generate tab-specific HTML
+  let tabContentHtml = '';
+
+  // Friendly Advice block for each tab
+  let friendlyAdviceHtml = '';
+
+  if (signalsHub_activeTab === 'weather') {
+    let alertRows = (w.alerts || [])
+      .slice(0, 3)
       .map(
-        (eq) => `
-      <div class="flex justify-between gap-2 text-xs bg-slate-50 rounded-lg px-2 py-1.5 border border-slate-100">
-        <span class="font-semibold text-amber-700">M${eq.mag?.toFixed(1)}</span>
-        <span class="text-slate-600 truncate flex-1">${eq.place || 'Unknown'}</span>
-        <span class="text-slate-400 shrink-0">${eq.timeAgo}</span>
-      </div>`
+        (a) => `<li class="text-xs text-amber-800"><strong>${a.event}</strong> — ${a.headline || a.severity}</li>`
       )
-      .join('')}</div>`;
-  }
+      .join('');
 
-  let eonetHtml = '';
-  if (s.eonet.length === 0) {
-    eonetHtml = `<p class="text-xs text-slate-500">No open NASA EONET events nearby.</p>`;
-  } else {
-    eonetHtml = `<div class="space-y-1.5 max-h-28 overflow-y-auto">${s.eonet
-      .slice(0, 5)
-      .map(
-        (e) => `
-      <div class="text-xs bg-violet-50 border border-violet-100 rounded-lg px-2 py-1.5">
-        <span class="font-semibold text-violet-800">${e.category}</span>
-        <span class="text-slate-600"> · ${e.title}</span>
-        <span class="text-slate-400"> (${e.distanceKm} km)</span>
-      </div>`
-      )
-      .join('')}</div>`;
-  }
-
-  let imdHtml = (s.imd || [])
-    .map(
-      (a) => `
-    <div class="text-xs border-l-2 border-sky-400 pl-2 py-1">
-      <span class="font-semibold text-slate-800">${a.title}</span>
-      <p class="text-slate-500 mt-0.5">${a.description}</p>
-    </div>`
-    )
-    .join('');
-
-  let alertRows = (w.alerts || [])
-    .slice(0, 3)
-    .map(
-      (a) => `<li class="text-xs text-amber-800"><strong>${a.event}</strong> — ${a.headline || a.severity}</li>`
-    )
-    .join('');
-
-  return `
-    <div class="space-y-3" id="signals-hub-dashboard">
-      <div class="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div class="${rc.bg} ${rc.text} px-3 py-2 flex items-center justify-between">
-          <span class="text-xs font-bold uppercase tracking-wide">Disaster risk score</span>
-          <span class="text-lg font-black">${s.risk.score}</span>
-        </div>
-        <div class="px-3 py-2">
-          <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div class="${rc.bar} h-full rounded-full transition-all" style="width:${s.risk.score}%"></div>
+    tabContentHtml = `
+      <div class="space-y-3 slide-up">
+        <div class="grid grid-cols-3 gap-2 text-center">
+          <div class="bg-slate-50 border border-slate-100 rounded-xl py-2 px-1">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Rain now</p>
+            <p class="text-sm font-black text-sky-600 mt-0.5">${w.precipitation} mm</p>
           </div>
-          <p class="text-xs font-semibold text-slate-700 mt-1.5">${s.risk.label} risk · updated ${updated}</p>
+          <div class="bg-slate-50 border border-slate-100 rounded-xl py-2 px-1">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Wind</p>
+            <p class="text-sm font-black text-slate-700 mt-0.5">${Math.round(w.windSpeed)} km/h</p>
+          </div>
+          <div class="bg-slate-50 border border-slate-100 rounded-xl py-2 px-1">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Temp</p>
+            <p class="text-sm font-black text-slate-800 mt-0.5">${Math.round(w.temp)}°C</p>
+          </div>
+        </div>
+        <p class="text-[10.5px] text-slate-500 leading-relaxed font-medium">
+          <i class="fa-solid fa-cloud text-sky-400 mr-0.5"></i> ${w.weatherLabel} · Today: ${Math.round(w.dailyRain)} mm rain, wind max ${Math.round(w.dailyWindMax)} km/h
+        </p>
+        ${alertRows ? `<ul class="mt-2 space-y-1 list-disc list-inside bg-amber-50/50 border border-amber-100 rounded-xl p-2.5">${alertRows}</ul>` : ''}
+      </div>
+    `;
+
+    // Conversational plain language advice
+    let adviceText = "Everything looks safe and calm. Perfect weather to step outside!";
+    if (s.risk.score >= 75) {
+      adviceText = "🚨 Extreme weather conditions detected. Stay indoors, secure all doors and windows, and keep your phone charged.";
+    } else if (s.risk.score >= 50) {
+      adviceText = "⚠️ Heavy rain or high winds active. Avoid waterlogged streets and low-lying underpasses. Drive with caution.";
+    } else if (s.risk.score >= 25) {
+      adviceText = "🌧️ Light showers or moderate wind in the forecast. Carry an umbrella and plan for slight traffic delays.";
+    }
+
+    friendlyAdviceHtml = `
+      <div class="bg-indigo-50/80 border border-indigo-100 rounded-xl p-3 mt-3 slide-up">
+        <h4 class="text-[10px] font-black uppercase text-indigo-700 tracking-wider flex items-center gap-1.5 mb-1">
+          <i class="fa-solid fa-face-smile"></i> Friendly Weather Guide
+        </h4>
+        <p class="text-[11px] text-indigo-900 leading-relaxed font-medium">${adviceText}</p>
+      </div>
+    `;
+
+  } else if (signalsHub_activeTab === 'earthquakes') {
+    let eqHtml = '';
+    if (s.earthquakes.length === 0) {
+      eqHtml = `<p class="text-xs text-slate-500 p-2 text-center bg-slate-50 rounded-xl border border-slate-100">No M4+ quakes within the region (last 7 days).</p>`;
+    } else {
+      eqHtml = `<div class="space-y-2 max-h-40 overflow-y-auto pr-1">${s.earthquakes
+        .slice(0, 6)
+        .map(
+          (eq) => `
+        <div class="flex justify-between items-center gap-2 text-xs bg-slate-50 rounded-xl px-3 py-2 border border-slate-100 hover:border-slate-200 transition-all">
+          <div class="flex items-center gap-2">
+            <span class="font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded text-[10px] border border-rose-100">M${eq.mag?.toFixed(1)}</span>
+            <span class="text-slate-700 font-semibold truncate max-w-[150px]">${eq.place || 'Unknown'}</span>
+          </div>
+          <span class="text-slate-400 font-bold text-[10px]">${eq.timeAgo}</span>
+        </div>`
+        )
+        .join('')}</div>`;
+    }
+
+    tabContentHtml = `
+      <div class="space-y-3 slide-up">
+        ${eqHtml}
+      </div>
+    `;
+
+    friendlyAdviceHtml = `
+      <div class="bg-amber-50 border border-amber-150 rounded-xl p-3 mt-3 slide-up">
+        <h4 class="text-[10px] font-black uppercase text-amber-800 tracking-wider flex items-center gap-1.5 mb-1">
+          <i class="fa-solid fa-circle-question"></i> Understanding Earthquakes
+        </h4>
+        <p class="text-[10.5px] text-amber-900 leading-relaxed">
+          The Earth's crust is constantly moving. Tremors below magnitude 5.0 are very common and harmless. We track them within our region to stay informed, but there's no need to worry unless a high-magnitude alert is issued.
+        </p>
+      </div>
+    `;
+
+  } else if (signalsHub_activeTab === 'eonet') {
+    let eonetHtml = '';
+    if (s.eonet.length === 0) {
+      eonetHtml = `<p class="text-xs text-slate-500 p-2 text-center bg-slate-50 rounded-xl border border-slate-100">No active environmental events tracked in region.</p>`;
+    } else {
+      eonetHtml = `<div class="space-y-2 max-h-40 overflow-y-auto pr-1">${s.eonet
+        .slice(0, 5)
+        .map(
+          (e) => `
+        <div class="text-xs bg-violet-50 border border-violet-100 rounded-xl px-3 py-2 flex flex-col gap-1">
+          <div class="flex items-center justify-between">
+            <span class="font-extrabold text-violet-800 bg-violet-100/60 px-2 py-0.5 rounded text-[9.5px]">${e.category}</span>
+            <span class="text-[9.5px] text-slate-400 font-semibold">${e.distanceKm} km away</span>
+          </div>
+          <p class="text-slate-700 font-semibold">${e.title}</p>
+        </div>`
+        )
+        .join('')}</div>`;
+    }
+
+    tabContentHtml = `
+      <div class="space-y-3 slide-up">
+        ${eonetHtml}
+      </div>
+    `;
+
+    friendlyAdviceHtml = `
+      <div class="bg-violet-50 border border-violet-100 rounded-xl p-3 mt-3 slide-up">
+        <h4 class="text-[10px] font-black uppercase text-violet-800 tracking-wider flex items-center gap-1.5 mb-1">
+          <i class="fa-solid fa-satellite"></i> NASA Satellite Tracking
+        </h4>
+        <p class="text-[10.5px] text-violet-900 leading-relaxed">
+          NASA's satellites monitor global environmental phenomena like ocean storms or wildfires from space. These events are far away and tracked purely for science—they pose absolutely no threat to you today!
+        </p>
+      </div>
+    `;
+
+  } else if (signalsHub_activeTab === 'imd') {
+    let imdHtml = '';
+    if (s.imd.length === 0) {
+      imdHtml = `<p class="text-xs text-slate-500 p-2 text-center bg-slate-50 rounded-xl border border-slate-100">No active regional advisories at the moment.</p>`;
+    } else {
+      imdHtml = `<div class="space-y-2.5">${s.imd
+        .map(
+          (a) => `
+        <div class="text-xs border-l-3 border-sky-400 pl-3 py-1 bg-sky-50/30 rounded-r-xl pr-2">
+          <span class="font-bold text-slate-800 block text-[11px]">${a.title}</span>
+          <p class="text-slate-500 mt-1 leading-normal text-[10.5px]">${a.description}</p>
+        </div>`
+        )
+        .join('')}</div>`;
+    }
+
+    tabContentHtml = `
+      <div class="space-y-3 slide-up">
+        ${imdHtml}
+      </div>
+    `;
+
+    friendlyAdviceHtml = `
+      <div class="bg-sky-50 border border-sky-100 rounded-xl p-3 mt-3 slide-up">
+        <h4 class="text-[10px] font-black uppercase text-sky-850 tracking-wider flex items-center gap-1.5 mb-1">
+          <i class="fa-solid fa-circle-info"></i> What this means for you
+        </h4>
+        <p class="text-[10.5px] text-sky-900 leading-relaxed">
+          These are official India Meteorological Department weather bulletins. If there's an active yellow or red warning, plan your trips accordingly and stay indoors during heavy downpours.
+        </p>
+      </div>
+    `;
+  }
+
+  // Define conversational overall message based on Risk Score
+  let overallRiskMsg = '';
+  if (s.risk.score >= 75) {
+    overallRiskMsg = '🔴 Red Alert · Critical conditions! Extreme weather or active alerts. Seek shelter immediately.';
+  } else if (s.risk.score >= 50) {
+    overallRiskMsg = '🟠 Orange Alert · Elevated risk. Heavy rain or warnings active. Limit travel.';
+  } else if (s.risk.score >= 25) {
+    overallRiskMsg = '🟡 Yellow Alert · Moderate risk. Minor weather signals active. Carry an umbrella.';
+  } else {
+    overallRiskMsg = '🟢 Green Alert · No threats. Enjoy your day and stay safe!';
+  }
+
+  // Header Card markup
+  const headerCardHtml = `
+    <div class="bg-gradient-to-tr from-slate-900 to-slate-800 text-white border border-slate-900 rounded-2xl shadow-lg p-4 overflow-hidden relative">
+      <!-- Grid pattern decoration -->
+      <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 12px 12px;"></div>
+      
+      <div class="flex items-center justify-between relative z-10">
+        <div>
+          <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Live Telemetry</span>
+          <h3 class="text-sm font-black tracking-tight mt-0.5">Disaster Risk Score</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[9px] font-bold text-slate-400">Updated ${updated}</span>
+          <button type="button" onclick="signalsHub_refresh()" class="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all cursor-pointer" title="Refresh Telemetry">
+            <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Risk score ring/bar -->
+      <div class="mt-4 flex items-center gap-4 relative z-10">
+        <!-- Big Number -->
+        <div class="w-14 h-14 rounded-full bg-slate-950/40 border border-slate-800/80 flex flex-col items-center justify-center shrink-0 shadow-inner">
+          <span class="text-xl font-black font-mono leading-none">${s.risk.score}</span>
+          <span class="text-[7.5px] font-black text-slate-500 uppercase tracking-wide mt-0.5 leading-none">/ 100</span>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800/40">
+            <div class="${rc.bar} h-full rounded-full transition-all duration-1000" style="width: ${s.risk.score}%"></div>
+          </div>
+          <p class="text-[11px] font-bold mt-2 truncate leading-tight">${overallRiskMsg}</p>
           ${
             s.risk.factors.length
-              ? `<p class="text-[10px] text-slate-500 mt-1">${s.risk.factors.join(' · ')}</p>`
+              ? `<p class="text-[9px] text-slate-400 mt-1 truncate leading-none">${s.risk.factors.join(' · ')}</p>`
               : ''
           }
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-xl p-3">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-xs font-semibold text-slate-800"><i class="fa-solid fa-cloud-rain text-sky-500 mr-1"></i> Weather · Open-Meteo</h3>
-          <button type="button" onclick="signalsHub_refresh()" class="text-[10px] text-indigo-600 font-semibold">Refresh</button>
+      <!-- Collapsible Expand trigger -->
+      <div class="mt-4 pt-3.5 border-t border-slate-800/60 flex justify-center relative z-10">
+        <button id="signals-hub-toggle-btn" type="button" class="w-full py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-extrabold text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/10 cursor-pointer transition-all">
+          <span>${signalsHub_isExpanded ? 'Hide Live Signals' : 'Show Live Signals'}</span>
+          <i class="fa-solid ${signalsHub_isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-[9px]"></i>
+        </button>
+      </div>
+    </div>
+  `;
+
+  // Expanded panel markup
+  let detailPanelHtml = '';
+  if (signalsHub_isExpanded) {
+    const tabClass = (tab) =>
+      signalsHub_activeTab === tab
+        ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/50 font-black'
+        : 'text-slate-400 hover:text-slate-700 font-semibold';
+
+    detailPanelHtml = `
+      <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm slide-up">
+        <!-- Segmented Tab Bar -->
+        <div class="bg-slate-100 rounded-xl p-1 flex gap-0.5 select-none mb-3">
+          <button type="button" class="signals-hub-tab-btn flex-1 py-2 rounded-lg text-[9.5px] uppercase tracking-wider transition-all cursor-pointer ${tabClass('weather')}" data-tab="weather">
+            🌦️ Weather
+          </button>
+          <button type="button" class="signals-hub-tab-btn flex-1 py-2 rounded-lg text-[9.5px] uppercase tracking-wider transition-all cursor-pointer ${tabClass('earthquakes')}" data-tab="earthquakes">
+            🌋 Quakes
+          </button>
+          <button type="button" class="signals-hub-tab-btn flex-1 py-2 rounded-lg text-[9.5px] uppercase tracking-wider transition-all cursor-pointer ${tabClass('eonet')}" data-tab="eonet">
+            🛰️ Space
+          </button>
+          <button type="button" class="signals-hub-tab-btn flex-1 py-2 rounded-lg text-[9.5px] uppercase tracking-wider transition-all cursor-pointer ${tabClass('imd')}" data-tab="imd">
+            📢 Advisories
+          </button>
         </div>
-        <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="bg-slate-50 rounded-lg py-2 px-1">
-            <p class="text-[10px] text-slate-500">Rain now</p>
-            <p class="text-sm font-bold text-sky-700">${w.precipitation} mm</p>
-          </div>
-          <div class="bg-slate-50 rounded-lg py-2 px-1">
-            <p class="text-[10px] text-slate-500">Wind</p>
-            <p class="text-sm font-bold text-slate-800">${Math.round(w.windSpeed)} km/h</p>
-          </div>
-          <div class="bg-slate-50 rounded-lg py-2 px-1">
-            <p class="text-[10px] text-slate-500">Temp</p>
-            <p class="text-sm font-bold text-slate-800">${Math.round(w.temp)}°C</p>
-          </div>
+
+        <!-- Active Tab Content -->
+        <div class="px-0.5">
+          ${tabContentHtml}
         </div>
-        <p class="text-[10px] text-slate-500 mt-2">${w.weatherLabel} · Today: ${Math.round(w.dailyRain)} mm rain, wind up to ${Math.round(w.dailyWindMax)} km/h</p>
-        ${alertRows ? `<ul class="mt-2 space-y-1 list-disc list-inside">${alertRows}</ul>` : ''}
-        <p class="text-[10px] text-emerald-600 mt-2">Flood/storm signals use rain + wind + official weather alerts.</p>
-      </div>
 
-      <div class="bg-white border border-slate-200 rounded-xl p-3">
-        <h3 class="text-xs font-semibold text-slate-800 mb-2"><i class="fa-solid fa-house-chimney-crack text-amber-600 mr-1"></i> Earthquakes · USGS</h3>
-        ${eqHtml}
+        <!-- Conversational Safety Guidance -->
+        ${friendlyAdviceHtml}
       </div>
+    `;
+  }
 
-      <div class="bg-white border border-slate-200 rounded-xl p-3">
-        <h3 class="text-xs font-semibold text-slate-800 mb-2"><i class="fa-solid fa-globe text-violet-600 mr-1"></i> Natural events · NASA EONET</h3>
-        ${eonetHtml}
-      </div>
+  return `
+    <div class="space-y-3" id="signals-hub-dashboard">
+      ${headerCardHtml}
+      ${detailPanelHtml}
+    </div>
+  `;
+}
 
-      <div class="bg-sky-50 border border-sky-100 rounded-xl p-3">
-        <h3 class="text-xs font-semibold text-sky-900 mb-2"><i class="fa-solid fa-wind text-sky-600 mr-1"></i> India advisories · IMD reference</h3>
-        <div class="space-y-2">${imdHtml}</div>
-      </div>
-    </div>`;
+function signalsHub_bindDashboardListeners() {
+  const toggleBtn = document.getElementById('signals-hub-toggle-btn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      signalsHub_isExpanded = !signalsHub_isExpanded;
+      signalsHub_refreshUI();
+    });
+  }
+
+  const tabBtns = document.querySelectorAll('.signals-hub-tab-btn');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      signalsHub_activeTab = btn.getAttribute('data-tab');
+      signalsHub_refreshUI();
+    });
+  });
 }
 
 function signalsHub_refreshUI() {
@@ -506,6 +686,7 @@ function signalsHub_refreshUI() {
   if (window.appState && window.appState.isLowBandwidth) return;
   const city = (window.appState && window.appState.currentCity) || 'Bengaluru';
   panel.innerHTML = signalsHub_drawDashboardHTML(city);
+  signalsHub_bindDashboardListeners();
 }
 
 window.signalsHub_refreshUI = signalsHub_refreshUI;
